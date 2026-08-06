@@ -1,0 +1,78 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - /etc/localtime:/etc/localtime:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+      - prometheus_data:/prometheus
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "9090:9090"
+    networks:
+      - prom_net
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    network_mode: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      MYSQL_ROOT_PASSWORD: 12345
+    command: --slow_query_log=ON --long_query_time=10
+    ports:
+      - "3306:3306"
+    networks:
+      - prom_net 
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    container_name: mysql-exporter
+    volumes:
+      - ./mysql-exporter.cnf:/etc/mysql-exporter.cnf:ro
+      - /etc/localtime:/etc/localtime:ro
+    command:
+      - '--config.my-cnf=/etc/mysql-exporter.cnf'
+      - '--collect.info_schema.processlist'
+      - '--collect.info_schema.innodb_metrics'
+    ports:
+      - "9104:9104"
+    networks:
+      - prom_net
+    depends_on:
+      - mysql
+    restart: on-failure
+  
+  grafana:
+    image: grafana/grafana:10.4.4
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - prom_net
+
+volumes:
+  grafana-data:
+    name: test_1_grafana_data
+  prometheus_data:
+
+networks:
+  prom_net:
+    external: true
+    name: test_1_monitoring 

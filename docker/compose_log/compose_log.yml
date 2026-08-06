@@ -1,0 +1,49 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.20
+    container_name: es
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"   # 限制堆内存，保护虚拟机
+      - xpack.security.enabled=false        # 单机开发关闭安全
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - monitoring
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.20
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      NODE_OPTIONS: "--max-old-space-size=512"
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.20
+    container_name: filebeat
+    user: root   # 为了读取挂载的日志文件
+    restart: always
+    volumes:
+      - ../../filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ../../data/logs:/var/log/app:ro   # 把 Demo 日志目录挂载进来
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro   # 读取容器日志
+    command: filebeat -e -strict.perms=false     #日志输出到控制台,关闭配置文件权限校验
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring
+
+volumes:
+  es_data:
+
+networks:
+  monitoring:
+    driver: bridge

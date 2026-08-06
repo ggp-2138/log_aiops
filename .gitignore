@@ -1,0 +1,54 @@
+# 环境变量敏感配置
+.env
+
+# Python 缓存文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*$py.class
+*.so
+
+# 运行时缓存、Drain3 持久化数据
+data/drain_state.bin
+
+# 日志文件
+*.log
+
+# 虚拟环境
+venv/
+.venv/
+env/
+ENV/
+aiops/
+*.egg-info/
+dist/
+build/
+.conda/
+
+# 编辑器缓存
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# 系统垃圾文件
+.DS_Store
+Thumbs.db
+
+# 容器临时挂载缓存
+docker/temp/
+
+# 备份与临时文件 
+*.bak
+*.tmp
+*.temp
+*.orig
+
+# 忽略 Jupyter Notebook 检查点
+.ipynb_checkpoints/

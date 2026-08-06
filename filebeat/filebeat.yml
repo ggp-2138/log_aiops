@@ -1,0 +1,20 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/app/*/app.log      # 采集 Demo 应用日志
+  fields:
+    app: demo-app
+    env: dev
+  fields_under_root: true
+  # 多行日志合并（如 Java 异常堆栈），可按需开启
+  # multiline.pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+  # multiline.negate: true
+  # multiline.match: after
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+
+# 调试时可开启控制台输出
+# output.console:
+#   pretty: true
