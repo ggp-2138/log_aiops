@@ -17,7 +17,8 @@
 
 &emsp;&emsp;基于 ELK 与 Drain3 实现日志模板化抽象，采用 MAD 算法替代传统 Z-Score 实现日志频次异常检测，通过三级降噪机制有效控制误报率；联动 Prometheus 时序监控体系，基于动态回溯窗口与基线分离策略实现跨维度根因定位；集成本地大语言模型 Qwen2.5-1.5B 自动生成排障建议，形成（日志 + 指标）双维度可观测性体系与（检测→定位→诊断建议）的智能化闭环
 
-Demo视频：`bilibili.com/video/BV1Gzun6zEYp`
+**Demo视频：`bilibili.com/video/BV1Gzun6zEYp`**
+
 ### 1.1 **技术栈**
 **日志采集与存储链路**
 
