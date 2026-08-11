@@ -1,4 +1,4 @@
-name: test_mad
+name: test_stl_mad
 
 # 触发时机：push推送代码、提交pull‑request时自动运行
 on:
