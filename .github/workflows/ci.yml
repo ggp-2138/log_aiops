@@ -9,11 +9,8 @@ on:
 
 jobs:
   test:
-    runs-on: 
-        - self-hosted
-        - g1
-        - Linux
-        - X64
+    runs-on: self-hosted 
+        
     steps:
       # 拉取仓库代码
       - name: pull code
