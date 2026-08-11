@@ -4,10 +4,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-PROMETHEUS_URL = config.PROMETHEUS_URL     # Prometheus 地址
-ROOT_CAUSE_MAP = config.ROOT_CAUSE_MAP     # 异常模板 ID 与关联指标映射
-GLOBAL_MAX_SCORE = config.GLOBAL_MAX_SCORE      # 全局得分上限
-MIN_CONT_POINTS = config.MIN_CONT_POINTS        # 连续异常点数阈值，过滤单点毛刺
+PROMETHEUS_URL = config.PROMETHEUS_URL  # Prometheus 地址
+ROOT_CAUSE_MAP = config.ROOT_CAUSE_MAP  # 异常模板 ID 与关联指标映射
+GLOBAL_MAX_SCORE = config.GLOBAL_MAX_SCORE  # 全局得分上限
+MIN_CONT_POINTS = config.MIN_CONT_POINTS  # 连续异常点数阈值，过滤单点毛刺
+
 
 # ========== 时间标准化转换模块(解决 datetime 类型报错) ===============
 def normalize_datetime(dt_input):
@@ -39,20 +40,24 @@ def normalize_datetime(dt_input):
         try:
             return datetime.strptime(dt_input, "%Y-%m-%d %H:%M:%S")
         except ValueError:
-            raise ValueError(f"时间字符串格式错误：{dt_input}，仅支持 %Y-%m-%d %H:%M:%S")
+            raise ValueError(
+                f"时间字符串格式错误：{dt_input}，仅支持 %Y-%m-%d %H:%M:%S"
+            )
     # 非法类型抛出异常
-    raise TypeError("时间入参仅支持：datetime对象、数字时间戳、'2026-08-01 12:00:00'格式字符串")
+    raise TypeError(
+        "时间入参仅支持：datetime对象、数字时间戳、'2026-08-01 12:00:00'格式字符串"
+    )
 
 
 def query_prometheus(promql, start_time, end_time, step=None):
     """查询 Prometheus 指标，返回时间序列值列表
-        step:
-            是 PromQL 查询时的步进间隔,每隔 step 时间戳，就近查找该时间点对应的最近原始采集值，填入结果数组
-            例如 step='1m' 代表每分钟返回一个采样点
-            step 需要大于等于 Prometheus 的 scrape_interval(采集间隔)，才能拿到数据
-        新增：自动根据巡检窗口跨度适配步长，避免历史久远大窗口查询为空
-        scrape_interval: Prometheus.yml 中的参数
-            原始时序点数量 = 巡检总时长 / 采集间隔 + 1
+    step:
+        是 PromQL 查询时的步进间隔,每隔 step 时间戳，就近查找该时间点对应的最近原始采集值，填入结果数组
+        例如 step='1m' 代表每分钟返回一个采样点
+        step 需要大于等于 Prometheus 的 scrape_interval(采集间隔)，才能拿到数据
+    新增：自动根据巡检窗口跨度适配步长，避免历史久远大窗口查询为空
+    scrape_interval: Prometheus.yml 中的参数
+        原始时序点数量 = 巡检总时长 / 采集间隔 + 1
     """
     # 入参强制标准化，杜绝外部传入带时区时间
     start_time = normalize_datetime(start_time)
@@ -71,13 +76,15 @@ def query_prometheus(promql, start_time, end_time, step=None):
             step = "1m"
 
     try:
-        params = {              #请求体
-            'query': promql,
-            'start': start_time.timestamp(),
-            'end': end_time.timestamp(),
-            'step': step
+        params = {  # 请求体
+            "query": promql,
+            "start": start_time.timestamp(),
+            "end": end_time.timestamp(),
+            "step": step,
         }
-        resp = requests.get(f"{PROMETHEUS_URL}/api/v1/query_range", params=params, timeout=10)
+        resp = requests.get(
+            f"{PROMETHEUS_URL}/api/v1/query_range", params=params, timeout=10
+        )
         resp.raise_for_status()
         data = resp.json()
         if data["status"] != "success" or len(data["data"]["result"]) == 0:
@@ -90,8 +97,9 @@ def query_prometheus(promql, start_time, end_time, step=None):
         return None
 
 
-def mad_score_with_baseline(detect_series, metric_name,baseline_series=None,
-                            min_relative_mad=0.05):
+def mad_score_with_baseline(
+    detect_series, metric_name, baseline_series=None, min_relative_mad=0.05
+):
     """
     分离基线&检测窗口 MAD 打分
     min_relative_mad: 最小相对波动阈值
@@ -144,7 +152,7 @@ def mad_score_with_baseline(detect_series, metric_name,baseline_series=None,
     raw_score = np.quantile(abs_z, 0.95)
     # 统计连续超标点
     anomaly_cnt = np.sum(abs_z > 3)
-    #不满足门槛则衰减得分,降低误告警权重
+    # 不满足门槛则衰减得分,降低误告警权重
     if anomaly_cnt < MIN_CONT_POINTS:
         raw_score *= 0.5
 
@@ -168,13 +176,16 @@ def mad_score_with_baseline(detect_series, metric_name,baseline_series=None,
         direction = "-"
 
     # 调试日志打印
-    print(f"[DEBUG] {metric_name}: 基线中位数={baseline_median:.4f}, 基线MAD={baseline_mad:.6f}, "
-          f"异常点数={anomaly_cnt}, 最终得分={final_score:.1f}, 趋势={direction}")
+    print(
+        f"[DEBUG] {metric_name}: 基线中位数={baseline_median:.4f}, 基线MAD={baseline_mad:.6f}, "
+        f"异常点数={anomaly_cnt}, 最终得分={final_score:.1f}, 趋势={direction}"
+    )
     #  返回: 最终得分, 基线中位数, 指标升降方向
     return final_score, baseline_median, direction
 
+
 def build_query_window(anomaly_start=None, anomaly_end=None):
-    """ 根据聚合窗口和传导延迟动态计算查询窗口
+    """根据聚合窗口和传导延迟动态计算查询窗口
     lookback_before: 异常开始前额外拉取多少分钟数据（建立基线）,
         推荐 >= (2~3) * TIME_WINDOW_MINUTES（相邻异常点合并窗口）,回溯窗口能覆盖完整故障链路和基线数据
         确保基线数据包含异常发生前至少一个完整合并窗口的数据，避免基线被前面的异常点污染.
@@ -221,8 +232,9 @@ def build_query_window(anomaly_start=None, anomaly_end=None):
         "query_start": query_start,
         "query_end": query_end,
         "lookback_before": lookback_before,
-        "lookback_after": lookback_after
+        "lookback_after": lookback_after,
     }
+
 
 def get_top3_root_cause(anomalous_template_ids, anomaly_start=None, anomaly_end=None):
     """
@@ -277,27 +289,31 @@ def get_top3_root_cause(anomalous_template_ids, anomaly_start=None, anomaly_end=
         for metric_name, promql in metrics.items():
             # 单次查询完整动态窗口（前置回溯窗口+后置恢复段）
             full_series = query_prometheus(promql, query_start, query_end)
-            # print(f"[TIME-DBG] metric={metric_name} start={query_start} end={query_end}")           
+            # print(f"[TIME-DBG] metric={metric_name} start={query_start} end={query_end}")
             # print(f"[TIME-DBG] start_ts={query_start.timestamp()}, end_ts={query_end.timestamp()}")
-            
+
             if full_series is None or len(full_series) < 3:
                 print(f"[FALLBACK] {metric_name} 原窗口时序不足，切换近20分钟窗口重试")
                 fb_e = datetime.now()
                 fb_s = fb_e - timedelta(minutes=20)
                 full_series = query_prometheus(promql, fb_s, fb_e)
-                print(f"[TIME-DBG-FALLBACK] metric={metric_name} fb_start={fb_s} fb_end={fb_e}")
+                print(
+                    f"[TIME-DBG-FALLBACK] metric={metric_name} fb_start={fb_s} fb_end={fb_e}"
+                )
             if full_series is None:
                 print(f"[SKIP] {metric_name} ❌ 请求Prometheus异常！")
                 continue
             if len(full_series) < 3:
-                print(f"[SKIP] {metric_name} ⚠ 时序点数不足({len(full_series)}个)，跳过计算")
+                print(
+                    f"[SKIP] {metric_name} ⚠ 时序点数不足({len(full_series)}个)，跳过计算"
+                )
                 continue
 
             # 按回溯比例自动拆分基线段与检测段
             # 总巡检时长
             total_span = (query_end - query_start).total_seconds() / 60
             # 基线区间比例
-            baseline_ratio = (query_window["lookback_before"]*0.7) / total_span
+            baseline_ratio = (query_window["lookback_before"] * 0.7) / total_span
             # 基线最高只允许占巡检总窗口70%，强制留存30%作为检测区间
             baseline_ratio = min(baseline_ratio, 0.7)
             # 将基线区间与检测段分割，保证至少 3 个采样点
@@ -307,7 +323,8 @@ def get_top3_root_cause(anomalous_template_ids, anomaly_start=None, anomaly_end=
             # 检测区间
             detect_series = full_series[split_idx:]
             print(
-                f"[DEBUG] {metric_name}: baseline_points={len(baseline_series)}, detect_points={len(detect_series)}")
+                f"[DEBUG] {metric_name}: baseline_points={len(baseline_series)}, detect_points={len(detect_series)}"
+            )
 
             # 点数校验
             if len(detect_series) < 1 or len(baseline_series) < 2:
@@ -321,11 +338,12 @@ def get_top3_root_cause(anomalous_template_ids, anomaly_start=None, anomaly_end=
                 detect_series=detect_series,
                 metric_name=metric_name,
                 baseline_series=baseline_series,
-                min_relative_mad=cfg["min_relative_mad"]
+                min_relative_mad=cfg["min_relative_mad"],
             )
 
             print(
-                f"[DEBUG] {metric_name}: score={score}, base_med={base_med}, SCORE_THRESHOLD={config.MIN_SCORE_THRESHOLD}")
+                f"[DEBUG] {metric_name}: score={score}, base_med={base_med}, SCORE_THRESHOLD={config.MIN_SCORE_THRESHOLD}"
+            )
 
             # 低于阈值不纳入结果
             if score <= config.MIN_SCORE_THRESHOLD:
@@ -335,16 +353,20 @@ def get_top3_root_cause(anomalous_template_ids, anomaly_start=None, anomaly_end=
                 "metric_name": metric_name,
                 "score": round(score, 1),
                 "direction": direction,
-                "template_id": tid
+                "template_id": tid,
             }
 
             # 同名指标保留最高分
-            if metric_name not in seen_metrics or score > seen_metrics[metric_name]["score"]:
+            if (
+                metric_name not in seen_metrics
+                or score > seen_metrics[metric_name]["score"]
+            ):
                 seen_metrics[metric_name] = item
 
     # 按得分降序，取Top3根因返回
     sorted_list = sorted(seen_metrics.values(), key=lambda x: x["score"], reverse=True)
     return sorted_list[:3]
+
 
 """
 示例输出:

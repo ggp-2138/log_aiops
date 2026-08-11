@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 app = FastAPI()
 
+
 # 请求体
 class LogFrequencyData(BaseModel):
     # ...  是 Ellipsis 对象,代表该字段没有默认值、是必填项
@@ -17,17 +18,21 @@ class LogFrequencyData(BaseModel):
     values: list[list[int]] = Field(..., min_length=1, max_length=2000)
     # 模板索引ID
     template_ids: list[int] = Field(..., min_length=1)
+
     # after: 先执行 Field 校验，再执行该校验
     # 检验日志模板的频次数组长度和时间戳列表长度是否相等
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_lengths(self) -> Self:
         ts = self.timestamps
         vals = self.values
         n = len(ts)
         for i, seq in enumerate(vals):
             if len(seq) != n:
-                raise ValueError(f'模板序列长度不一致: 期望 {n}，实际第 {i} 个序列长度为 {len(seq)}')
+                raise ValueError(
+                    f"模板序列长度不一致: 期望 {n}，实际第 {i} 个序列长度为 {len(seq)}"
+                )
         return self
+
 
 @app.post("/detect/log")
 # authorization: 从 data 请求头中提取 Authorization 字段,默认值为 None
@@ -55,7 +60,7 @@ def detect_log_anomaly(data: LogFrequencyData, authorization: str = Header(None)
     #     MAD          1.4826*MAD
     # MAD 异常检测
     for idx, freq_list in enumerate(freq_matrix):
-        template_id=data.template_ids[idx]      # 使用正确的模板索引ID(避免首个模板丢失)
+        template_id = data.template_ids[idx]  # 使用正确的模板索引ID(避免首个模板丢失)
         series = pd.Series(freq_list)
         median = series.median()
         mad = np.median(np.abs(series - median))
@@ -68,10 +73,12 @@ def detect_log_anomaly(data: LogFrequencyData, authorization: str = Header(None)
         for i, flag in enumerate(is_anomaly):
 
             if flag:
-                anomalies.append({
-                    "timestamp": timestamps[i],
-                    "template_id": template_id,
-                    "frequency": freq_list[i]
-                })
+                anomalies.append(
+                    {
+                        "timestamp": timestamps[i],
+                        "template_id": template_id,
+                        "frequency": freq_list[i],
+                    }
+                )
     # print(is_anomaly)
     return {"anomalies": anomalies}

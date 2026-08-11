@@ -25,8 +25,10 @@ try:
             rand_num = random.randint(1000, 9999)
             rand_ip = f"192.168.1.{random.randint(1, 255)}"
             line = random.choice(log_lines).format(num=rand_num, ip=rand_ip)
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {line}\n")       #strftime：获取当前系统本地时间字符串
-            f.flush()   # 立即写入磁盘，Filebeat 实时采集
+            f.write(
+                f"{time.strftime('%Y-%m-%d %H:%M:%S')} {line}\n"
+            )  # strftime：获取当前系统本地时间字符串
+            f.flush()  # 立即写入磁盘，Filebeat 实时采集
             time.sleep(0.1)
 except KeyboardInterrupt:
     print(f"\n[INFO] 日志生成被中断，已写入 {i} 条日志。")

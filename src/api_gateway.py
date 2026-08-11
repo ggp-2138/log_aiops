@@ -3,6 +3,7 @@ import requests
 
 app = FastAPI()
 
+
 @app.post("/diagnose")
 def unified_diagnosis(alert: dict):
     # 调用项目一 MAD 检测接口

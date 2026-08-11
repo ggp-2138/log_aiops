@@ -1,7 +1,7 @@
 import re
 import os
 from datetime import UTC
-from elasticsearch import Elasticsearch      # DSL 查询语句,读取 ES 中的日志
+from elasticsearch import Elasticsearch  # DSL 查询语句,读取 ES 中的日志
 from drain3 import TemplateMiner
 from drain3.template_miner_config import TemplateMinerConfig
 from drain3.file_persistence import FilePersistence
@@ -12,22 +12,22 @@ from datetime import datetime, timedelta
 ES_HOST = "http://xxx1:9200"
 # 索引名称通配符：默认按天生成索引(filebeat-2026.07.27)
 INDEX = "filebeat-*"
-LOOKBACK_MINUTES = 60*24
-DRAIN_SAVE_PATH = "../data/drain_state.bin"       # 日志模板树持久化
-INDIR = "../data/drain_data/"         # 输入缓存目录
-OUTDIR = "../data/drain_result/"      # 解析结果输出目录
+LOOKBACK_MINUTES = 60 * 24
+DRAIN_SAVE_PATH = "../data/drain_state.bin"  # 日志模板树持久化
+INDIR = "../data/drain_data/"  # 输入缓存目录
+OUTDIR = "../data/drain_result/"  # 解析结果输出目录
 # 正则预处理: 命名分组提取标准时间戳、日志头、正文（可根据实际日志格式微调）
 # \s+: 多个空格分隔符
 input_format = r"(?P<Time>\S+\s+\S+)\s+(?P<Level>[A-Z]+)\s+-\s+(?P<Content>.*)"
 
-#创建目录
+# 创建目录
 os.makedirs(INDIR, exist_ok=True)
 os.makedirs(OUTDIR, exist_ok=True)
 
 # 初始化 Drain3 parser对象
 config = TemplateMinerConfig()
-config.sim_th = 0.5     # 日志相似度阈值(越大聚类越严格)
-config.depth = 4         # 前缀树最大深度(越大日志拆分粒度越细)
+config.sim_th = 0.5  # 日志相似度阈值(越大聚类越严格)
+config.depth = 4  # 前缀树最大深度(越大日志拆分粒度越细)
 
 # 开启持久化：加载历史模板
 persistence = FilePersistence(DRAIN_SAVE_PATH)
@@ -51,13 +51,13 @@ start = end - timedelta(minutes=LOOKBACK_MINUTES)
 query = {
     "size": 1000,
     "query": {
-        "range": {          # 范围查询
-            "@timestamp": {                # Filebeat 采集日志时产生的时间戳字段
+        "range": {  # 范围查询
+            "@timestamp": {  # Filebeat 采集日志时产生的时间戳字段
                 "gte": start.strftime("%Y-%m-%dT%H:%M:%S"),
-                "lte": end.strftime("%Y-%m-%dT%H:%M:%S")
-            }               # strftime：将 datetime 对象转为字符串( ISO8601 )
+                "lte": end.strftime("%Y-%m-%dT%H:%M:%S"),
+            }  # strftime：将 datetime 对象转为字符串( ISO8601 )
         }
-    }
+    },
 }
 
 # 调用 ES Search API(res 是字典)
@@ -78,13 +78,15 @@ for line in logs:
 
 # 打印前5个日志模板
 # 读取存储的(内存)日志模板簇(新版 Drain3 底层存储为字典)
-all_clusters = list(template_miner.drain.clusters)      # 将字典转为列表
+all_clusters = list(template_miner.drain.clusters)  # 将字典转为列表
 if len(all_clusters) == 0:
     print("暂无生成任何日志模板")
 else:
     print("\n日志模板示例：")
     for i, cluster in enumerate(all_clusters[:5]):
-        print(f"模板 {i} | ID:{cluster.cluster_id} | 模板内容: {cluster.get_template()}")
+        print(
+            f"模板 {i} | ID:{cluster.cluster_id} | 模板内容: {cluster.get_template()}"
+        )
 
 # 安全持久化保存，判断处理器非空再执行
 if template_miner.persistence_handler is not None:
@@ -105,10 +107,7 @@ for log_line in logs:
         # 匹配已有模板ID
         matched_cluster = template_miner.match(content)
         if matched_cluster is not None:
-            events.append({
-                "timestamp": ts,
-                "cluster_id": matched_cluster.cluster_id
-            })
+            events.append({"timestamp": ts, "cluster_id": matched_cluster.cluster_id})
 
 # pandas时序统计
 df = pd.DataFrame(events)
@@ -146,4 +145,3 @@ print("\n全流程执行完毕：日志拉取->模板聚类->频次统计完成"
 # # 如果状态码是 200，再尝试 resp.json()
 # if resp.status_code == 200:
 #     print(resp.json())
-
