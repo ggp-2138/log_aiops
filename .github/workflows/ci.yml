@@ -12,6 +12,8 @@ jobs:
     runs-on: 
         - self-hosted
         - g1
+        - Linux
+        - X64
     steps:
       # 拉取仓库代码
       - name: pull code
