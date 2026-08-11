@@ -12,6 +12,7 @@ services:
       - "9090:9090"
     networks:
       - prom_net
+    restart: always
 
   node-exporter:
     image: prom/node-exporter:v1.8.2
@@ -25,6 +26,7 @@ services:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--path.rootfs=/rootfs'
+    restart: on-failure
 
   mysql:
     image: mysql:8.0
@@ -38,6 +40,7 @@ services:
       - "3306:3306"
     networks:
       - prom_net 
+    restart: always
 
   mysql-exporter:
     image: prom/mysqld-exporter:v0.15.1
@@ -66,13 +69,14 @@ services:
       - "3000:3000"
     networks:
       - prom_net
+    restart: always
 
 volumes:
   grafana-data:
-    name: test_1_grafana_data
+    name: compose_prome_grafana_data
   prometheus_data:
 
 networks:
   prom_net:
     external: true
-    name: test_1_monitoring 
+    name: monitoring 

@@ -213,6 +213,14 @@
 ## 3. 项目目录结构
 ```
 log_aiops/
+ ├── .github/workflows/
+ |   |
+ |   └── ci.yml                        # GitHub‑Actions CI/CD流水线配置
+ |
+ ├── tests/
+ |   |
+ │   └── test_stl_mad.py               # MAD+STL 时序分解单元测试文件
+ |
  ├── README.md                         # 项目说明、架构、部署教程
  │
  ├── .env.template                     # 全局环境变量‑敏感配置

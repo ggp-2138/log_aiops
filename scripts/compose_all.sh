@@ -4,8 +4,8 @@
 LOG_COMPOSE="../docker/compose_log/compose_log.yml"
 PROME_COMPOSE="../docker/compose_prome/compose_prome.yml"
 # 项目名称
-PROJ1="test_1"
-PROJ2="test_2"
+PROJ1="compose_log"
+PROJ2="compose_prome"
 
 case "$1" in
 up)
