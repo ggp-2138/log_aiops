@@ -51,8 +51,10 @@ jobs:
 
           # 通过7001 FRP隧道端口连接内网虚拟机，执行远端部署脚本
           ssh -i runner_ssh_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -p 7001 "
+          
           # 项目部署根目录
           PROJECT_ROOT=\"/home/hadoop/log_cicd\"
+          
           # 目录不存在则初次拉取代码仓库
           [ ! -d \"\${PROJECT_ROOT}\" ] && git clone https://github.com/${{ github.repository }}.git \"\${PROJECT_ROOT}\"
           
