@@ -31,11 +31,15 @@ jobs:
       
       # 代码格式检查
       - name: Python代码格式校验
-        run: black --check . --exclude "(venv|__pycache__|docker)"
+        run: |
+          black . --exclude "(venv|__pycache__|docker)"
+          black --check . --exclude "(venv|__pycache__|docker)"
 
       # STL‑MAD 单元测试
       - name: 运行 STL‑MAD 全套单元测试
-        run: pytest tests/test_stl_mad.py -v
+        run: |
+          export PYTHONPATH=$PWD
+          pytest tests/test_stl_mad.py -v
 
       # 5. 远程一键无缝部署（CD 环节）
       - name: Remote Zero-Downtime Deploy via SSH
