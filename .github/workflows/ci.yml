@@ -81,7 +81,7 @@ jobs:
               echo '错误：compose_prome 文件夹缺失'
               exit 1
           fi
-          cd docker/compose_prome
+          cd ../docker/compose_prome
           docker compose -f compose_prome.yml -p compose_prome up -d --pull always 
 
           # 列出全部正在运行的容器，用于部署之后检查
