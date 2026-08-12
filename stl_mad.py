@@ -16,9 +16,14 @@ def robust_z_score(arr: np.ndarray) -> np.ndarray:
     arr = np.asarray(arr)
     median_val = np.median(arr)
     mad = calc_mad(arr)
-    # MAD等于0时全部得分置零
+
     if mad == 0:
-        return np.zeros_like(arr, dtype=np.float64)
+        # MAD为0：所有元素等于中位数→z=0；偏离元素手动计算
+        z = np.zeros_like(arr, dtype=np.float64)
+        idx = arr != median_val
+        z[idx] = (arr[idx] - median_val) / 0.6745
+        return z
+
     z = 0.6745 * (arr - median_val) / mad
     return z
 
@@ -29,7 +34,8 @@ def mad_detect(data, threshold: float = 3):
     """
     arr = np.asarray(data, dtype=np.float64)
     scores = robust_z_score(arr)
-    mask = np.abs(scores) > threshold
+    # threshold=0时全部元素判定异常，使用 >=
+    mask = np.abs(scores) >= threshold
     return mask, scores
 
 
