@@ -51,9 +51,11 @@ jobs:
 
           # 通过7001 FRP隧道端口连接内网虚拟机，执行远端部署脚本
           ssh -i runner_ssh_key ${{ secrets.SSH_USER }}@127.0.0.1 -p 7001 "
-          
+          set -e
+          # 开启严格模式，脚本出错直接退出部署
+
           # 项目部署根目录
-          PROJECT_ROOT=\"/home/hadoop/log_cicd\"
+          PROJECT_ROOT=\"/home/hadoop/log_aiops\"
           
           # 目录不存在则初次拉取代码仓库
           [ ! -d \"\${PROJECT_ROOT}\" ] && git clone https://github.com/${{ github.repository }}.git \"\${PROJECT_ROOT}\"
@@ -67,10 +69,18 @@ jobs:
           docker network ls | grep -w monitoring || docker network create monitoring
 
           # 启动ELK日志整套容器服务
+          if [ ! -d docker/compose_log ];then
+              echo '错误：docker/compose_log 文件夹缺失，请检查仓库文件'
+              exit 1
+          fi
           cd docker/compose_log
           docker compose -p compose_log up -d --pull always 
 
           # 启动Prometheus监控与各个exporter组件
+          if [ ! -d ../compose_prome ];then
+              echo '错误：compose_prome 文件夹缺失'
+              exit 1
+          fi
           cd ../compose_prome
           docker compose -p compose_prome up -d --pull always 
 
