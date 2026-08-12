@@ -19,6 +19,8 @@
 
 **Demo视频：`bilibili.com/video/BV1Gzun6zEYp`**
 
+[![CI/CD Status](https://github.com/ggp-2138/log_aiops/actions/workflows/ci.yml/badge.svg)](https://github.com/ggp-2138/log_aiops/actions/workflows/ci.yml)
+
 ### 1.1 **技术栈**
 **日志采集与存储链路**
 

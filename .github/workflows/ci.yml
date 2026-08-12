@@ -44,54 +44,54 @@ jobs:
           pytest tests/test_stl_mad.py -v
 
       # 5. 远程一键无缝部署（CD 环节）
-      - name: Remote Zero-Downtime Deploy via SSH
-        run: |
-          # 将仓库密钥变量写入临时私钥文件
-          echo "${{ secrets.SSH_KEY }}" > runner_ssh_key
-          # SSH强制要求私钥权限为600，防止全局可读
-          chmod 600 runner_ssh_key
+      # - name: Remote Zero-Downtime Deploy via SSH
+      #   run: |
+      #     # 将仓库密钥变量写入临时私钥文件
+      #     echo "${{ secrets.SSH_KEY }}" > runner_ssh_key
+      #     # SSH强制要求私钥权限为600，防止全局可读
+      #     chmod 600 runner_ssh_key
 
-          # 通过7001 FRP隧道端口连接内网虚拟机，执行远端部署脚本
-          ssh -i runner_ssh_key ${{ secrets.SSH_USER }}@127.0.0.1 -p 7001 "
-          set -e
-          # 开启严格模式，脚本出错直接退出部署
+      #     # 通过7001 FRP隧道端口连接内网虚拟机，执行远端部署脚本
+      #     ssh -i runner_ssh_key ${{ secrets.SSH_USER }}@127.0.0.1 -p 7001 "
+      #     set -e
+      #     # 开启严格模式，脚本出错直接退出部署
 
-          # 项目部署根目录
-          PROJECT_ROOT=\"/home/hadoop/log_aiops\"
+      #     # 项目部署根目录
+      #     PROJECT_ROOT=\"/home/hadoop/log_aiops\"
           
-          # 目录不存在则初次拉取代码仓库
-          [ ! -d \"\${PROJECT_ROOT}\" ] && git clone https://github.com/${{ github.repository }}.git \"\${PROJECT_ROOT}\"
+      #     # 目录不存在则初次拉取代码仓库
+      #     [ ! -d \"\${PROJECT_ROOT}\" ] && git clone https://github.com/${{ github.repository }}.git \"\${PROJECT_ROOT}\"
           
-          # 进入项目文件夹，强制同步main分支最新代码
-          cd \"\${PROJECT_ROOT}\"
-          git fetch origin
-          git reset --hard origin/main
+      #     # 进入项目文件夹，强制同步main分支最新代码
+      #     cd \"\${PROJECT_ROOT}\"
+      #     git fetch origin
+      #     git reset --hard origin/main
           
-          # 创建docker专属网桥monitoring，容器统一网络
-          docker network ls | grep -w monitoring || docker network create monitoring
+      #     # 创建docker专属网桥monitoring，容器统一网络
+      #     docker network ls | grep -w monitoring || docker network create monitoring
 
-          # 启动ELK日志整套容器服务
-          if [ ! -d docker/compose_log ];then
-              echo '错误：docker/compose_log 文件夹缺失，请检查仓库文件'
-              exit 1
-          fi
-          cd docker/compose_log
-          docker compose -f compose_log.yml -p compose_log up -d --pull always 
+      #     # 启动ELK日志整套容器服务
+      #     if [ ! -d docker/compose_log ];then
+      #         echo '错误：docker/compose_log 文件夹缺失，请检查仓库文件'
+      #         exit 1
+      #     fi
+      #     cd docker/compose_log
+      #     docker compose -f compose_log.yml -p compose_log up -d --pull always 
 
-          # 退回项目根目录
-          cd \"\${PROJECT_ROOT}\"
+      #     # 退回项目根目录
+      #     cd \"\${PROJECT_ROOT}\"
 
-          # 启动Prometheus监控与各个exporter组件
-          if [ ! -d docker/compose_prome ];then
-              echo '错误：docker/compose_prome 文件夹缺失'
-              exit 1
-          fi
-          cd docker/compose_prome
-          docker compose -f compose_prome.yml -p compose_prome up -d --pull always 
+      #     # 启动Prometheus监控与各个exporter组件
+      #     if [ ! -d docker/compose_prome ];then
+      #         echo '错误：docker/compose_prome 文件夹缺失'
+      #         exit 1
+      #     fi
+      #     cd docker/compose_prome
+      #     docker compose -f compose_prome.yml -p compose_prome up -d --pull always 
 
-          # 列出全部正在运行的容器，用于部署之后检查
-          docker ps -a
-          echo \"✅ CI/CD 自动化部署完成\"
-          "
-          # 部署完成立刻删除本地临时私钥，避免密钥明文残留在服务器
-          rm -f runner_ssh_key
+      #     # 列出全部正在运行的容器，用于部署之后检查
+      #     docker ps -a
+      #     echo \"✅ CI/CD 自动化部署完成\"
+      #     "
+      #     # 部署完成立刻删除本地临时私钥，避免密钥明文残留在服务器
+      #     rm -f runner_ssh_key
