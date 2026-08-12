@@ -26,7 +26,7 @@ services:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--path.rootfs=/rootfs'
-    restart: on-failure
+    restart: always
 
   mysql:
     image: mysql:8.0
@@ -58,7 +58,7 @@ services:
       - prom_net
     depends_on:
       - mysql
-    restart: on-failure
+    restart: always
   
   grafana:
     image: grafana/grafana:10.4.4
