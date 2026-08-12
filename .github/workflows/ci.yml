@@ -74,15 +74,15 @@ jobs:
               exit 1
           fi
           cd docker/compose_log
-          docker compose -p compose_log up -d --pull always 
+          docker compose -f compose_log.yml -p compose_log up -d --pull always 
 
           # 启动Prometheus监控与各个exporter组件
           if [ ! -d ../compose_prome ];then
               echo '错误：compose_prome 文件夹缺失'
               exit 1
           fi
-          cd ../compose_prome
-          docker compose -p compose_prome up -d --pull always 
+          cd docker/compose_prome
+          docker compose -f compose_prome.yml -p compose_prome up -d --pull always 
 
           # 列出全部正在运行的容器，用于部署之后检查
           docker ps -a
