@@ -43,37 +43,38 @@ jobs:
 
       # 5. 远程一键无缝部署（CD 环节）
       - name: Remote Zero-Downtime Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          port: 7001
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          debug: true
-          script: |
-            # 1. 判断 test_cicd 目录是否存在，不存在则首次克隆
-            PROJECT_ROOT="/home/hadoop/log_cicd"
-            [ ! -d "${PROJECT_ROOT}" ] && git clone https://github.com/${{ github.repository }}.git "${PROJECT_ROOT}"
+        run: |
+          # 将仓库密钥变量写入临时私钥文件
+          echo "${{ secrets.SSH_KEY }}" > runner_ssh_key
+          # SSH强制要求私钥权限为600，防止全局可读
+          chmod 600 runner_ssh_key
 
-            # 2. 更新仓库
-            cd "${PROJECT_ROOT}"
-            git fetch origin
-            git reset --hard origin/main
-            
-            # 3. 拉取镜像 + 无缝重启
-            # --remove-orphans 生产环境禁用
+          # 通过7001 FRP隧道端口连接内网虚拟机，执行远端部署脚本
+          ssh -i runner_ssh_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -p 7001 "
+          # 项目部署根目录
+          PROJECT_ROOT=\"/home/hadoop/log_cicd\"
+          # 目录不存在则初次拉取代码仓库
+          [ ! -d \"\${PROJECT_ROOT}\" ] && git clone https://github.com/${{ github.repository }}.git \"\${PROJECT_ROOT}\"
+          
+          # 进入项目文件夹，强制同步main分支最新代码
+          cd \"\${PROJECT_ROOT}\"
+          git fetch origin
+          git reset --hard origin/main
+          
+          # 创建docker专属网桥monitoring，容器统一网络
+          docker network ls | grep -w monitoring || docker network create monitoring
 
-            # 检查公共网桥
-            docker network ls | grep -w monitoring || docker network create monitoring
+          # 启动ELK日志整套容器服务
+          cd docker/compose_log
+          docker compose -p compose_log up -d --pull always 
 
-            # 启动 ELK 容器服务
-            cd docker/compose_log
-            docker compose -p compose_log up -d --pull always 
+          # 启动Prometheus监控与各个exporter组件
+          cd ../compose_prome
+          docker compose -p compose_prome up -d --pull always 
 
-            #启动 Prometheus +各 exporter 容器服务
-            cd ../compose_prome
-            docker compose -p compose_prome up -d --pull always 
-
-            # 4. 检查服务状态
-            docker ps -a
-            echo "✅ CI/CD 自动化部署完成"
+          # 列出全部正在运行的容器，用于部署之后检查
+          docker ps -a
+          echo \"✅ CI/CD 自动化部署完成\"
+          "
+          # 部署完成立刻删除本地临时私钥，避免密钥明文残留在服务器
+          rm -f runner_ssh_key
