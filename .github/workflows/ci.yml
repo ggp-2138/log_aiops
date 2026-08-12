@@ -79,11 +79,11 @@ jobs:
           docker compose -f compose_log.yml -p compose_log up -d --pull always 
 
           # 退回项目根目录
-          cd ../..
+          cd \"\${PROJECT_ROOT}\"
 
           # 启动Prometheus监控与各个exporter组件
-          if [ ! -d ../compose_prome ];then
-              echo '错误：compose_prome 文件夹缺失'
+          if [ ! -d docker/compose_prome ];then
+              echo '错误：docker/compose_prome 文件夹缺失'
               exit 1
           fi
           cd docker/compose_prome
