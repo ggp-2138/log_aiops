@@ -23,7 +23,3 @@ elasticsearch
 # 数据校验
 pydantic
 
-# 钉钉告警加密
-hmac
-base64
-urllib.parse
