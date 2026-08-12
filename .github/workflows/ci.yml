@@ -68,11 +68,11 @@ jobs:
 
             # 启动 ELK 容器服务
             cd docker/compose_log
-            docker compose -p compose_log up -d --pull always --remove‑orphans
+            docker compose -p compose_log up -d --pull always 
 
             #启动 Prometheus +各 exporter 容器服务
             cd ../compose_prome
-            docker compose -p compose_prome up -d --pull always --remove‑orphans
+            docker compose -p compose_prome up -d --pull always 
 
             # 4. 检查服务状态
             docker ps -a
