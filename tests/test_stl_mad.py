@@ -8,18 +8,22 @@ np.random.seed(42)
 TEST_PERIOD = 24
 FALSE_POSITIVE_LIMIT = 10
 
+
 # ================== 公共测试夹具 ==================
 @pytest.fixture
 def normal_odd_series():
     return np.array([10, 12, 9, 11, 8, 10, 13])
 
+
 @pytest.fixture
 def normal_even_series():
     return np.array([10, 12, 9, 11, 8, 10])
 
+
 @pytest.fixture
 def flat_series():
     return np.full(30, 7.0)
+
 
 # ================== calc_mad 基础函数测试 ==================
 def test_calc_mad_odd_length(normal_odd_series):
@@ -28,33 +32,40 @@ def test_calc_mad_odd_length(normal_odd_series):
     expect = np.median(np.abs(normal_odd_series - med))
     assert np.isclose(res, expect)
 
+
 def test_calc_mad_even_length(normal_even_series):
     res = calc_mad(normal_even_series)
     med = np.median(normal_even_series)
     expect = np.median(np.abs(normal_even_series - med))
     assert np.isclose(res, expect)
 
+
 def test_calc_mad_all_same(flat_series):
     assert np.isclose(calc_mad(flat_series), 0)
+
 
 def test_calc_mad_single_element():
     arr = np.array([5])
     assert np.isclose(calc_mad(arr), 0)
+
 
 def test_calc_mad_empty_array():
     arr = np.array([])
     with pytest.raises(ValueError, match="不能为空"):
         calc_mad(arr)
 
+
 # ================== robust_z_score 测试 ==================
 def test_zscore_flat_data(flat_series):
     z = robust_z_score(flat_series)
     assert np.all(z == 0)
 
+
 def test_zscore_with_extreme():
     arr = np.array([10, 10, 10, 100])
     z = robust_z_score(arr)
     assert z[-1] > 2.0
+
 
 def test_zscore_input_unchanged():
     arr = np.array([1, 2, 3, 4, 5])
@@ -62,10 +73,12 @@ def test_zscore_input_unchanged():
     robust_z_score(arr)
     assert np.array_equal(arr, original)
 
+
 def test_zscore_negative_sequence():
     arr = np.array([-5, -4, -6, -3, -80])
     z = robust_z_score(arr)
     assert np.abs(z[-1]) > 3
+
 
 # ================== mad_detect 检测器 ==================
 def test_plain_mad_detect_single_anomaly():
@@ -76,16 +89,19 @@ def test_plain_mad_detect_single_anomaly():
     assert len(scores) == len(data)
     assert scores[-1] > 3
 
+
 def test_plain_mad_detect_no_anomaly():
     data = np.arange(10, dtype=float)
     mask, scores = mad_detect(data, threshold=3)
     assert not np.any(mask)
     assert all(s < 3 for s in scores)
 
+
 def test_plain_mad_detect_threshold_zero():
     data = np.array([1, 2, 3])
     mask, _ = mad_detect(data, threshold=0)
     assert np.all(mask)
+
 
 # ================== StlMadDetector 参数校验 ==================
 def test_stl_length_exception():
@@ -94,13 +110,16 @@ def test_stl_length_exception():
     with pytest.raises(ValueError, match="过小"):
         detector.detect(short_seq)
 
+
 def test_stl_period_zero():
     with pytest.raises(ValueError, match="必须大于0"):
         StlMadDetector(period=0)
 
+
 def test_stl_negative_period():
     with pytest.raises(ValueError):
         StlMadDetector(period=-12)
+
 
 # ================== STL‑MAD 时序异常检测功能 ==================
 def test_stl_spike_single_anomaly():
