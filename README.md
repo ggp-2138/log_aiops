@@ -333,11 +333,22 @@ python ./generate_logs.py
 
 ### 4.5 启动本地大模型
 ```powershell (cmd)
-# 指定 ollama 使用 cuda‑v11 显卡后端
+
+:: 指定Ollama调用cuda‑v11显卡后端，RTX4050该版本内核稳定性优于cuda‑v12
 set OLLAMA_LLM_LIBRARY=cuda_v11
-# 开启 mmap 内存映射（默认模式，模型按需从磁盘读取权重，节省内存）
-set OLLAMA_NO_MMAP=false
-"C:\Users\administrator\AppData\Local\Programs\Ollama\ollama.exe" serve
+
+:: 关闭Vulkan图形后端，防止和CUDA显卡抢占产生冲突
+set OLLAMA_VULKAN=false
+
+:: 设置模型最大上下文窗口为4096，适配本机6G笔记本显存，避免显存溢出、内核崩溃
+set OLLAMA_CONTEXT_LENGTH=4096
+
+:: 仅允许1个模型常驻显存，多模型加载容易造成显存爆满
+set OLLAMA_MAX_LOADED_MODELS=1
+
+:: 启动ollama后台推理服务，监听11434端口
+ollama serve
+
 ```
 
 ### 4.6 执行一次完整巡检
