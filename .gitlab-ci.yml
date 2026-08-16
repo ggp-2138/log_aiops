@@ -1,7 +1,7 @@
 demo_test:
   tags: [vm]
   script:
-    - echo "测试开始"
+    - echo "CI测试sh执行"
     - whoami
     - id
     - docker --version
