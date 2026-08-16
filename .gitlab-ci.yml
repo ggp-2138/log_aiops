@@ -1,0 +1,6 @@
+demo_test:
+  tags: [vm]
+  script:
+    - echo "✅ GitLab CI测试"
+    - whoami
+    - docker --version
