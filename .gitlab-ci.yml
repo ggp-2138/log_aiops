@@ -1,7 +1,9 @@
 demo_test:
   tags: [vm]
   script:
-    - echo "CI测试sh执行"
-    - whoami
-    - id
+    - apt-get update -y
+    - apt-get install -y openssh-client docker.io docker-compose-plugin
+    - echo "docker executor测试"
     - docker --version
+    - docker compose version
+    - whoami
