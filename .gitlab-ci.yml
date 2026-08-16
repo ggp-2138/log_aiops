@@ -16,4 +16,4 @@ deploy_logaiops:
     - echo "测试SSH连通性"
     - ssh -o ConnectTimeout=10 hadoop@47.76.135.8 "echo 远程服务器连接成功"
     # 连通没问题后再开启真实部署
-    # - ssh hadoop@47.76.135.8 "cd /home/hadoop/log_aiops && git pull && docker compose -f docker/compose_log/compose_log.yml up -d"
+
