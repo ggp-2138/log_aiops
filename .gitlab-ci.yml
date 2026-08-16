@@ -1,9 +1,16 @@
-demo_test:
-  tags: [vm]
-  script:
+stages:
+  - deploy
+
+deploy_logaiops:
+  stage: deploy
+  image: ubuntu:22.04
+  # 不写tags，使用极狐平台共享runner
+  before_script:
     - apt-get update -y
-    - apt-get install -y openssh-client docker.io docker-compose-plugin
-    - echo "docker executor测试"
-    - docker --version
-    - docker compose version
-    - whoami
+    - apt-get install -y openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H 47.76.135.8 >> ~/.ssh/known_hosts
+  script:
+    - echo "hello"
