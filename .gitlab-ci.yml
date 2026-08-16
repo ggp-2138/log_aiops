@@ -1,6 +1,7 @@
 demo_test:
   tags: [vm]
   script:
-    - echo "✅ GitLab CI测试"
+    - echo "测试开始"
     - whoami
+    - id
     - docker --version
