@@ -4,13 +4,16 @@ stages:
 deploy_logaiops:
   stage: deploy
   image: ubuntu:22.04
-  # 不写tags，使用极狐平台共享runner
-  before_script:
+  # 使用极狐共享runner
+  script:
     - apt-get update -y
     - apt-get install -y openssh-client
     - mkdir -p ~/.ssh
+    # 全部ssh相关逻辑放到script里面，文件变量在script生命周期内才不会被提前回收
     - cp "$SSH_PRIVATE_KEY" ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H 47.76.135.8 >> ~/.ssh/known_hosts
-  script:
-    - echo "hello"
+    - echo "测试SSH连通性"
+    - ssh -o ConnectTimeout=10 hadoop@47.76.135.8 "echo 远程服务器连接成功"
+    # 连通没问题后再开启真实部署
+    # - ssh hadoop@47.76.135.8 "cd /home/hadoop/log_aiops && git pull && docker compose -f docker/compose_log/compose_log.yml up -d"
