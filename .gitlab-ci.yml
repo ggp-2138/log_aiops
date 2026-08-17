@@ -13,11 +13,6 @@ test_stl_mad:
   stage: test
   image: python:3.12    # 对应actions/setup-python 3.12
   # 直接使用极狐SaaS共享runner
-
-  before_script:
-    # 【删除原来不带源的pip升级，避免外网超时】
-    true
-
   script:
     # 使用清华国内pip源，设置更长超时时间，解决共享runner访问国外源超时
     - python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
