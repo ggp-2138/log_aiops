@@ -1,14 +1,101 @@
+# 代码格式校验 + STL‑MAD单元测试，CD部署注释保留
 stages:
-  - deploy
+  - test
+  # - deploy   # CD部署阶段暂时注释
 
-deploy_logaiops:
-  stage: deploy
-  image: ubuntu:22.04
+# 触发时机：push main分支、MR(等价PR)变更main分支就执行
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+
+test_stl_mad:
+  stage: test
+  image: python:3.12    # 对应actions/setup-python 3.12
+  # 不写tags，直接使用极狐SaaS共享runner
+
+  before_script:
+    # 升级pip
+    - python -m pip install --upgrade pip
+
   script:
-    - apt-get update -y
-    - apt-get install -y openssh-client
-    - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-    - export SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=15"
-    - ssh -v $SSH_OPTS hadoop@47.76.135.8 "echo 连接成功"
+    # 1. 拉取代码（GitLab runner默认已经拉取，这里不需要checkout action）
+    # 2. 安装项目依赖
+    - pip install -r requirements.txt
+    - pip install python-dotenv
 
+    # 3. Python代码格式校验 black
+    - black . --exclude "(venv|__pycache__|docker)"
+    - black --check . --exclude "(venv|__pycache__|docker)"
+
+    # 4. STL‑MAD 全套单元测试
+    - export PYTHONPATH=$PWD
+    - pytest tests/test_stl_mad.py -v
+
+# CD环节
+# deploy_logaiops:
+#   stage: deploy
+#   image: ubuntu:22.04
+#   # 仅main分支push才执行部署，MR不跑部署任务
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+
+#   before_script:
+#     # 安装ssh客户端
+#     - apt-get update -y
+#     - apt-get install -y openssh-client
+#     - mkdir -p ~/.ssh
+#     # 将GitLab文件变量的私钥复制到本地id_rsa
+#     - cp "${SSH_PRIVATE_KEY}" ~/.ssh/id_rsa
+#     # SSH强制私钥权限600，权限过大会拒绝登录
+#     - chmod 600 ~/.ssh/id_rsa
+#     # 录入目标主机指纹，跳过交互式确认
+#     - ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts
+
+#   script:
+#     - |
+#       ssh -i ~/.ssh/id_rsa ${SSH_USER}@127.0.0.1 -p ${SSH_PORT} << 'EOF'
+#         set -e
+#         # 开启严格模式，脚本出错直接退出部署
+
+#         # 项目部署根目录
+#         PROJECT_ROOT="/home/hadoop/log_aiops"
+
+#         # 目录不存在则初次拉取代码仓库
+#         [ ! -d "${PROJECT_ROOT}" ] && git clone https://jihulab.com/${CI_PROJECT_PATH}.git "${PROJECT_ROOT}"
+
+#         # 进入项目文件夹，强制同步main分支最新代码
+#         cd "${PROJECT_ROOT}"
+#         git fetch origin
+#         git reset --hard origin/main
+
+#         # 创建docker专属网桥monitoring，容器统一网络
+#         docker network ls | grep -w monitoring || docker network create monitoring
+
+#         # 启动ELK日志整套容器服务
+#         if [ ! -d docker/compose_log ];then
+#             echo '错误：docker/compose_log 文件夹缺失，请检查仓库文件'
+#             exit 1
+#         fi
+#         cd docker/compose_log
+#         docker compose -f compose_log.yml -p compose_log up -d --pull always
+
+#         # 退回项目根目录
+#         cd "${PROJECT_ROOT}"
+
+#         # 启动Prometheus监控与各个exporter组件
+#         if [ ! -d docker/compose_prome ];then
+#             echo '错误：docker/compose_prome 文件夹缺失'
+#             exit 1
+#         fi
+#         cd docker/compose_prome
+#         docker compose -f compose_prome.yml -p compose_prome up -d --pull always
+
+#         # 列出全部正在运行的容器，用于部署之后检查
+#         docker ps -a
+#         echo "✅ CI/CD 自动化部署完成"
+#       EOF
+
+#   after_script:
+#     # 任务结束清理临时私钥文件，防止密钥残留
+#     - rm -f ~/.ssh/id_rsa
