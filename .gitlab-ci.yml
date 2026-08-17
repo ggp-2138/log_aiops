@@ -12,23 +12,21 @@ workflow:
 test_stl_mad:
   stage: test
   image: python:3.12    # 对应actions/setup-python 3.12
-  # 不写tags，直接使用极狐SaaS共享runner
+  # 直接使用极狐SaaS共享runner
 
   before_script:
     # 升级pip
     - python -m pip install --upgrade pip
 
   script:
-    # 1. 拉取代码（GitLab runner默认已经拉取，这里不需要checkout action）
-    # 2. 安装项目依赖
-    - pip install -r requirements.txt
-    - pip install python-dotenv
+    # 使用清华国内pip源，设置更长超时时间，解决共享runner访问国外源超时
+    - python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
+    - pip install python-dotenv -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
 
-    # 3. Python代码格式校验 black
     - black . --exclude "(venv|__pycache__|docker)"
     - black --check . --exclude "(venv|__pycache__|docker)"
 
-    # 4. STL‑MAD 全套单元测试
     - export PYTHONPATH=$PWD
     - pytest tests/test_stl_mad.py -v
 
@@ -46,7 +44,7 @@ test_stl_mad:
 #     - apt-get install -y openssh-client
 #     - mkdir -p ~/.ssh
 #     # 将GitLab文件变量的私钥复制到本地id_rsa
-#     - cp "${SSH_PRIVATE_KEY}" ~/.ssh/id_rsa
+#     - cp "${SSH_PRIVATE_KEY_B64}" ~/.ssh/id_rsa
 #     # SSH强制私钥权限600，权限过大会拒绝登录
 #     - chmod 600 ~/.ssh/id_rsa
 #     # 录入目标主机指纹，跳过交互式确认
