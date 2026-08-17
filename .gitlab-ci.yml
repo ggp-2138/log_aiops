@@ -15,14 +15,14 @@ test_stl_mad:
   # 直接使用极狐SaaS共享runner
 
   before_script:
-    # 升级pip
-    - python -m pip install --upgrade pip
+    # 【删除原来不带源的pip升级，避免外网超时】
+    true
 
   script:
     # 使用清华国内pip源，设置更长超时时间，解决共享runner访问国外源超时
     - python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
     - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
-    - pip install python-dotenv -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
+    - pip install python-dotenv black pytest -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
 
     - black . --exclude "(venv|__pycache__|docker)"
     - black --check . --exclude "(venv|__pycache__|docker)"
@@ -43,8 +43,8 @@ test_stl_mad:
 #     - apt-get update -y
 #     - apt-get install -y openssh-client
 #     - mkdir -p ~/.ssh
-#     # 将GitLab文件变量的私钥复制到本地id_rsa
-#     - cp "${SSH_PRIVATE_KEY_B64}" ~/.ssh/id_rsa
+#     # base64解码生成私钥文件（注意变量名SSH_PRIVATE_KEY_B64，不是cp！！）
+#     - echo "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_rsa
 #     # SSH强制私钥权限600，权限过大会拒绝登录
 #     - chmod 600 ~/.ssh/id_rsa
 #     # 录入目标主机指纹，跳过交互式确认
