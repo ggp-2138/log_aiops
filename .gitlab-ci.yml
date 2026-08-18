@@ -55,14 +55,17 @@ deploy_logaiops:
     # 录入目标主机指纹，跳过交互式确认，允许ssh‑keyscan失败继续执行
     - ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts || true
 
-
   script:
     - |
-      # 切换到上层目录打包，解决 tar: .: file changed as we read it
-      cd ..
-      tar -zcf deploy.tar.gz --exclude='.git' --exclude='venv' builds/study5492133/log_aiops
-      mv deploy.tar.gz builds/study5492133/log_aiops/
-      cd builds/study5492133/log_aiops
+      # 使用GitLab内置环境变量，完全动态，不硬编码路径
+      PROJECT_WORKDIR="$CI_PROJECT_DIR"
+      # 切换到项目目录的父目录
+      cd "$(dirname "$PROJECT_WORKDIR")"
+      # 打包项目文件夹
+      tar -zcf deploy.tar.gz --exclude='.git' --exclude='venv' "$(basename "$PROJECT_WORKDIR")"
+      # 把tar包放回工作目录
+      mv deploy.tar.gz "$PROJECT_WORKDIR/"
+      cd "$PROJECT_WORKDIR"
 
       # scp上传压缩包到服务器/tmp目录
       scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 -P ${SSH_PORT} deploy.tar.gz ${SSH_USER}@${SSH_HOST}:/tmp/
@@ -71,15 +74,15 @@ deploy_logaiops:
         set -eo pipefail
         PROJECT_ROOT="/home/ggp/log_aiops"
 
-        # 部署前备份旧版本，防止回滚无数据，最多保留3份备份
+        # 部署前备份旧版本，最多保留3份备份
         if [ -d "${PROJECT_ROOT}" ];then
           mv "${PROJECT_ROOT}" "${PROJECT_ROOT}_bak_$(date +%Y%m%d_%H%M%S)"
           ls -dt ${PROJECT_ROOT}_bak_* | tail -n +4 | xargs rm -rf
         fi
 
         mkdir -p "${PROJECT_ROOT}"
-        # --strip-components=2 剥离 builds/study5492133/log_aiops 两层外层目录
-        tar -zxf /tmp/deploy.tar.gz -C "${PROJECT_ROOT}" --strip-components=2
+        # --strip-components=1：只剥离tar包里面那一层项目文件夹
+        tar -zxf /tmp/deploy.tar.gz -C "${PROJECT_ROOT}" --strip-components=1
 
         cd "${PROJECT_ROOT}"
 
@@ -110,3 +113,5 @@ deploy_logaiops:
         docker ps -a
         echo "✅ CI/CD 自动化部署完成"
       EOF
+
+  
