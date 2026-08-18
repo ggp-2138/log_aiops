@@ -70,7 +70,8 @@ deploy_logaiops:
       # scp上传压缩包到服务器/tmp目录
       scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 -P ${SSH_PORT} deploy.tar.gz ${SSH_USER}@${SSH_HOST}:/tmp/
 
-      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${SSH_USER}@${SSH_HOST} -p ${SSH_PORT} << 'EOF'
+      # 重点：末尾加 /bin/bash，强制远端用bash执行，解决dash不支持pipefail
+      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${SSH_USER}@${SSH_HOST} -p ${SSH_PORT} << 'EOF' /bin/bash
         set -eo pipefail
         PROJECT_ROOT="/home/ggp/log_aiops"
 
@@ -113,5 +114,3 @@ deploy_logaiops:
         docker ps -a
         echo "✅ CI/CD 自动化部署完成"
       EOF
-
-  
