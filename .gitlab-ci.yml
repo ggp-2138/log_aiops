@@ -1,7 +1,8 @@
 # 代码格式校验 + STL‑MAD单元测试，CD部署注释保留
 stages:
   - test
-  - deploy   # CD部署阶段暂时注释
+  - deploy   # CD部署阶段
+
 
 # 触发时机：push main分支、MR(等价PR)变更main分支就执行
 workflow:
@@ -10,10 +11,15 @@ workflow:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
     - if: $CI_PIPELINE_SOURCE == "web"    # 允许网页手动触发流水线
 
+
 test_stl_mad:
   stage: test
   image: python:3.12    # 对应actions/setup-python 3.12
-  # 直接使用极狐SaaS共享runner
+  # 旧版GitLab无when:never；只有网页手动启动流水线才允许执行，push/MR直接跳过
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+    - when: never
   script:
     # 使用清华国内pip源，设置更长超时时间，解决共享runner访问国外源超时
     - python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
@@ -26,35 +32,38 @@ test_stl_mad:
     - export PYTHONPATH=$PWD
     - pytest tests/test_stl_mad.py -v
 
+
 # CD环节
 deploy_logaiops:
   stage: deploy
   image: ubuntu:22.04
   timeout: 15m   # 增加部署超时，docker拉取镜像耗时久
-  # 仅main分支push才执行部署，MR不跑部署任务
+  # 仅main分支push OR 网页手动触发部署；MR不跑部署任务
   rules:
-    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_BRANCH == "main" && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web")
+
 
   before_script:
-    # 安装ssh客户端
+    # 安装ssh客户端，增加apt重试
     - apt-get update -y --option Acquire::Retries=3
     - apt-get install -y openssh-client
     - mkdir -p ~/.ssh
-    # base64解码生成私钥文件（注意变量名SSH_PRIVATE_KEY_B64，不是cp！！）
+    # base64解码生成私钥文件：本地把完整私钥base64编码后存入变量 SSH_PRIVATE_KEY_B64
     - echo "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_rsa
     # SSH强制私钥权限600，权限过大会拒绝登录
     - chmod 600 ~/.ssh/id_rsa
     # 录入目标主机指纹，跳过交互式确认，允许ssh‑keyscan失败继续执行
     - ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts || true
 
+
   script:
     - |
-      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} -p ${SSH_PORT} << EOF
+      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${SSH_USER}@${SSH_HOST} -p ${SSH_PORT} << 'EOF'
         set -eo pipefail
         # 开启严格模式，脚本出错直接退出部署
 
-        # 项目部署根目录
-        PROJECT_ROOT="/home/hadoop/log_aiops"
+        # ========== 修复：用户ggp，家目录 /home/ggp ==========
+        PROJECT_ROOT="/home/ggp/log_aiops"
 
         # 目录不存在则初次拉取代码仓库
         [ ! -d "\${PROJECT_ROOT}" ] && git clone https://jihulab.com/${CI_PROJECT_PATH}.git "\${PROJECT_ROOT}"
@@ -90,6 +99,7 @@ deploy_logaiops:
         docker ps -a
         echo "✅ CI/CD 自动化部署完成"
       EOF
+
 
   after_script:
     # 任务结束清理临时私钥文件，防止密钥残留
