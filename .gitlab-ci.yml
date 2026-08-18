@@ -26,8 +26,8 @@ test_stl_mad:
     - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
     - pip install python-dotenv black pytest -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
 
-    - black . --exclude "(venv|__pycache__|docker)"
-    - black --check . --exclude "(venv|__pycache__|docker)"
+    - black . --exclude venv|__pycache__|docker
+    - black --check . --exclude venv|__pycache__|docker
 
     - export PYTHONPATH=$PWD
     - pytest tests/test_stl_mad.py -v
@@ -58,25 +58,32 @@ deploy_logaiops:
 
   script:
     - |
+      # CI本地已经拉好全部代码，打包项目源码，排除.git、venv
+      tar -zcf deploy.tar.gz --exclude='.git' --exclude='venv' .
+
+      # scp上传压缩包到服务器/tmp目录
+      scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 -P ${SSH_PORT} deploy.tar.gz ${SSH_USER}@${SSH_HOST}:/tmp/
+
       ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${SSH_USER}@${SSH_HOST} -p ${SSH_PORT} << 'EOF'
         set -eo pipefail
-        # 开启严格模式，脚本出错直接退出部署
-
-        # ========== 修复：用户ggp，家目录 /home/ggp ==========
         PROJECT_ROOT="/home/ggp/log_aiops"
 
-        # 目录不存在则初次拉取代码仓库
-        [ ! -d "\${PROJECT_ROOT}" ] && git clone https://jihulab.com/${CI_PROJECT_PATH}.git "\${PROJECT_ROOT}"
+        # 部署前备份旧版本，防止回滚无数据，最多保留3份备份
+        if [ -d "${PROJECT_ROOT}" ];then
+          mv "${PROJECT_ROOT}" "${PROJECT_ROOT}_bak_$(date +%Y%m%d_%H%M%S)"
+          ls -dt ${PROJECT_ROOT}_bak_* | tail -n +4 | xargs rm -rf
+        fi
 
-        # 进入项目文件夹，强制同步main分支最新代码
-        cd "\${PROJECT_ROOT}"
-        git fetch origin
-        git reset --hard origin/main
+        mkdir -p "${PROJECT_ROOT}"
+        # 解压全新代码，干净发布
+        tar -zxf /tmp/deploy.tar.gz -C "${PROJECT_ROOT}"
 
-        # 创建docker专属网桥monitoring，容器统一网络
+        cd "${PROJECT_ROOT}"
+
+        # 创建docker网桥
         docker network ls | grep -w monitoring || docker network create monitoring
 
-        # 启动ELK日志整套容器服务
+        # 启动ELK compose
         if [ ! -d docker/compose_log ];then
             echo '错误：docker/compose_log 文件夹缺失，请检查仓库文件'
             exit 1
@@ -84,10 +91,9 @@ deploy_logaiops:
         cd docker/compose_log
         docker compose -f compose_log.yml -p compose_log up -d --pull always
 
-        # 退回项目根目录
-        cd "\${PROJECT_ROOT}"
+        cd "${PROJECT_ROOT}"
 
-        # 启动Prometheus监控与各个exporter组件
+        # 启动Prometheus compose
         if [ ! -d docker/compose_prome ];then
             echo '错误：docker/compose_prome 文件夹缺失'
             exit 1
@@ -95,12 +101,9 @@ deploy_logaiops:
         cd docker/compose_prome
         docker compose -f compose_prome.yml -p compose_prome up -d --pull always
 
-        # 列出全部正在运行的容器，用于部署之后检查
+        # 清理服务器临时压缩包
+        rm -f /tmp/deploy.tar.gz
+
         docker ps -a
         echo "✅ CI/CD 自动化部署完成"
       EOF
-
-
-  after_script:
-    # 任务结束清理临时私钥文件，防止密钥残留
-    - rm -f ~/.ssh/id_rsa
