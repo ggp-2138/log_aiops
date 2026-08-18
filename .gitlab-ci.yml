@@ -1,0 +1,116 @@
+# 代码格式校验 + STL‑MAD单元测试，CD部署注释保留
+stages:
+  - test
+  - deploy   # CD部署阶段
+
+
+# 触发时机：push main分支、MR(等价PR)变更main分支就执行
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+    - if: $CI_PIPELINE_SOURCE == "web"    # 允许网页手动触发流水线
+
+
+test_stl_mad:
+  stage: test
+  image: python:3.12    # 对应actions/setup-python 3.12
+  # 旧版GitLab无when:never；只有网页手动启动流水线才允许执行，push/MR直接跳过
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+    - when: never
+  script:
+    # 使用清华国内pip源，设置更长超时时间，解决共享runner访问国外源超时
+    - python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
+    - pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
+    - pip install python-dotenv black pytest -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
+
+    - black . --exclude venv|__pycache__|docker
+    - black --check . --exclude venv|__pycache__|docker
+
+    - export PYTHONPATH=$PWD
+    - pytest tests/test_stl_mad.py -v
+
+
+# CD环节
+deploy_logaiops:
+  stage: deploy
+  image: ubuntu:22.04
+  timeout: 15m   # 增加部署超时，docker拉取镜像耗时久
+  # 仅main分支push OR 网页手动触发部署；MR不跑部署任务
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web")
+
+
+  before_script:
+    # 安装ssh客户端，增加apt重试
+    - apt-get update -y --option Acquire::Retries=3
+    - apt-get install -y openssh-client
+    - mkdir -p ~/.ssh
+    # base64解码生成私钥文件：本地把完整私钥base64编码后存入变量 SSH_PRIVATE_KEY_B64
+    - echo "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_rsa
+    # SSH强制私钥权限600，权限过大会拒绝登录
+    - chmod 600 ~/.ssh/id_rsa
+    # 录入目标主机指纹，跳过交互式确认，允许ssh‑keyscan失败继续执行
+    - ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts || true
+
+  script:
+    - |
+      # 使用GitLab内置环境变量，完全动态，不硬编码路径
+      PROJECT_WORKDIR="$CI_PROJECT_DIR"
+      # 切换到项目目录的父目录
+      cd "$(dirname "$PROJECT_WORKDIR")"
+      # 打包项目文件夹
+      tar -zcf deploy.tar.gz --exclude='.git' --exclude='venv' "$(basename "$PROJECT_WORKDIR")"
+      # 把tar包放回工作目录
+      mv deploy.tar.gz "$PROJECT_WORKDIR/"
+      cd "$PROJECT_WORKDIR"
+
+      # scp上传压缩包到服务器/tmp目录
+      scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 -P ${SSH_PORT} deploy.tar.gz ${SSH_USER}@${SSH_HOST}:/tmp/
+
+      # 重点：末尾加 /bin/bash，强制远端用bash执行，解决dash不支持pipefail
+      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${SSH_USER}@${SSH_HOST} -p ${SSH_PORT} << 'EOF' /bin/bash
+        set -eo pipefail
+        PROJECT_ROOT="/home/ggp/log_aiops"
+
+        # 部署前备份旧版本，最多保留3份备份
+        if [ -d "${PROJECT_ROOT}" ];then
+          mv "${PROJECT_ROOT}" "${PROJECT_ROOT}_bak_$(date +%Y%m%d_%H%M%S)"
+          ls -dt ${PROJECT_ROOT}_bak_* | tail -n +4 | xargs rm -rf
+        fi
+
+        mkdir -p "${PROJECT_ROOT}"
+        # --strip-components=1：只剥离tar包里面那一层项目文件夹
+        tar -zxf /tmp/deploy.tar.gz -C "${PROJECT_ROOT}" --strip-components=1
+
+        cd "${PROJECT_ROOT}"
+
+        # 创建docker网桥
+        docker network ls | grep -w monitoring || docker network create monitoring
+
+        # 启动ELK compose
+        if [ ! -d docker/compose_log ];then
+            echo '错误：docker/compose_log 文件夹缺失，请检查仓库文件'
+            exit 1
+        fi
+        cd docker/compose_log
+        docker compose -f compose_log.yml -p compose_log up -d --pull always
+
+        cd "${PROJECT_ROOT}"
+
+        # 启动Prometheus compose
+        if [ ! -d docker/compose_prome ];then
+            echo '错误：docker/compose_prome 文件夹缺失'
+            exit 1
+        fi
+        cd docker/compose_prome
+        docker compose -f compose_prome.yml -p compose_prome up -d --pull always
+
+        # 清理服务器临时压缩包
+        rm -f /tmp/deploy.tar.gz
+
+        docker ps -a
+        echo "✅ CI/CD 自动化部署完成"
+      EOF
