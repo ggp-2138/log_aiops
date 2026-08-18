@@ -1,6 +1,6 @@
 services:
   prometheus:
-    image: prom/prometheus:v2.53.0
+    image: quay.io/prometheus/prometheus:v2.53.0
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - /etc/localtime:/etc/localtime:ro
@@ -15,7 +15,7 @@ services:
     restart: always
 
   node-exporter:
-    image: prom/node-exporter:v1.8.2
+    image: quay.io/prometheus/node-exporter:v1.8.2
     container_name: node-exporter
     network_mode: host
     volumes:
@@ -43,7 +43,7 @@ services:
     restart: always
 
   mysql-exporter:
-    image: prom/mysqld-exporter:v0.15.1
+    image: quay.io/prometheus/mysqld-exporter:v0.15.1
     container_name: mysql-exporter
     volumes:
       - ./mysql-exporter.cnf:/etc/mysql-exporter.cnf:ro
@@ -79,4 +79,4 @@ volumes:
 networks:
   prom_net:
     external: true
-    name: monitoring 
+    name: monitoring
