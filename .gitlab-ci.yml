@@ -58,8 +58,11 @@ deploy_logaiops:
 
   script:
     - |
-      # CI本地已经拉好全部代码，打包项目源码，排除.git、venv
-      tar -zcf deploy.tar.gz --exclude='.git' --exclude='venv' .
+      # 切换到上层目录打包，解决 tar: .: file changed as we read it
+      cd ..
+      tar -zcf deploy.tar.gz --exclude='.git' --exclude='venv' builds/study5492133/log_aiops
+      mv deploy.tar.gz builds/study5492133/log_aiops/
+      cd builds/study5492133/log_aiops
 
       # scp上传压缩包到服务器/tmp目录
       scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=30 -P ${SSH_PORT} deploy.tar.gz ${SSH_USER}@${SSH_HOST}:/tmp/
@@ -75,8 +78,8 @@ deploy_logaiops:
         fi
 
         mkdir -p "${PROJECT_ROOT}"
-        # 解压全新代码，干净发布
-        tar -zxf /tmp/deploy.tar.gz -C "${PROJECT_ROOT}"
+        # --strip-components=2 剥离 builds/study5492133/log_aiops 两层外层目录
+        tar -zxf /tmp/deploy.tar.gz -C "${PROJECT_ROOT}" --strip-components=2
 
         cd "${PROJECT_ROOT}"
 
